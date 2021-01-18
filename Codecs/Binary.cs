@@ -315,7 +315,7 @@ namespace Datamodel.Codecs
                     foreach (int attr_index in Enumerable.Range(0, Reader.ReadInt32()))
                     {
                         var name = ReadString_Raw();
-                        var value = DecodeAttribute(dm);
+                        var value = DecodeAttribute(dm, true);
                         if (prefix_elem == 0) // skip subsequent elements...are they considered "old versions"?
                             dm.PrefixAttributes[name] = value;
                     }
@@ -369,12 +369,12 @@ namespace Datamodel.Codecs
             return DecodeAttribute(dm);
         }
 
-        object DecodeAttribute(Datamodel dm)
+        object DecodeAttribute(Datamodel dm, bool isPrefix = false)
         {
             var type = IdToType(Reader.ReadByte());
 
             if (!Datamodel.IsDatamodelArrayType(type))
-                return ReadValue(dm, type, EncodingVersion < 4);
+                return ReadValue(dm, type, EncodingVersion < 4 || isPrefix);
             else
             {
                 var count = Reader.ReadInt32();
