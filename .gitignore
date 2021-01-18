@@ -1,6 +1,6 @@
 *.snk
 *.pfx
-*.Designer.cs
+.vs/
 
 #################
 ## Visual Studio
