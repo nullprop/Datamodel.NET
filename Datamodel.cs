@@ -710,7 +710,7 @@ namespace Datamodel
         public Element ImportElement(Element foreign_element, ImportRecursionMode import_mode, ImportOverwriteMode overwrite_mode)
         {
             if (foreign_element == null) throw new ArgumentNullException("element");
-            if (foreign_element.Owner == this) throw new ElementOwnershipException("Element is already a part of this Datamodel.");
+            if (foreign_element.Owner == this && overwrite_mode != ImportOverwriteMode.Copy) throw new ElementOwnershipException("Element is already a part of this Datamodel.");
 
             return ImportElement_internal(foreign_element, new ImportJob(import_mode, overwrite_mode));
         }
@@ -737,6 +737,10 @@ namespace Datamodel
             /// If a local Element has the same ID as a foreign Element, ignore the foreign Element.
             /// </summary>
             None,
+            /// <summary>
+            /// If a local Element has the same ID as a foreign Element, generate a new ID for the foreign Element.
+            /// </summary>
+            Copy,
             /// <summary>
             /// If a local stub Element has the same ID as a non-stub foreign Element, replace it.
             /// </summary>
@@ -779,7 +783,7 @@ namespace Datamodel
                 var local_element = AllElements[foreign_element.ID];
                 Element best_element = null;
 
-                if (local_element != null && !local_element.Stub)
+                if (local_element != null && !local_element.Stub && job.OverwriteMode != ImportOverwriteMode.Copy)
                     best_element = local_element;
                 else if (!foreign_element.Stub && job.ImportMode == ImportRecursionMode.Recursive)
                 {
@@ -806,7 +810,7 @@ namespace Datamodel
         Element ImportElement_internal(Element foreign_element, ImportJob job)
         {
             if (foreign_element == null) return null;
-            if (foreign_element.Owner == this) return foreign_element;
+            if (foreign_element.Owner == this && job.OverwriteMode != ImportOverwriteMode.Copy) return foreign_element;
 
             Element local_element;
 
@@ -843,6 +847,8 @@ namespace Datamodel
 
                 // find a local element with the same ID and either return or stub it
                 local_element = AllElements[foreign_element.ID];
+                bool create_new = false;
+                bool new_id = false;
                 if (local_element != null)
                 {
                     if (!foreign_element.Stub && (job.OverwriteMode == ImportOverwriteMode.All || (job.OverwriteMode == ImportOverwriteMode.Stubs && local_element.Stub)))
@@ -851,16 +857,26 @@ namespace Datamodel
                         local_element.ClassName = foreign_element.ClassName;
                         local_element.Stub = false;
                     }
+                    else if(job.OverwriteMode == ImportOverwriteMode.Copy)
+                    {
+                        create_new = true;
+                        new_id = local_element.ID == foreign_element.ID;
+                    }
                     else
                         return local_element;
                 }
                 else
                 {
+                    create_new = true;
+                }
+
+                if (create_new)
+                {
                     // Create a new local Element
                     if (foreign_element.Stub || (job.ImportMode == ImportRecursionMode.Stubs && job.Depth > 0))
-                        local_element = new Element(this, foreign_element.ID);
+                        local_element = new Element(this, new_id ? Guid.NewGuid() : foreign_element.ID);
                     else if (job.ImportMode == ImportRecursionMode.Recursive || job.Depth == 0)
-                        local_element = new Element(this, foreign_element.Name, foreign_element.ID, foreign_element.ClassName);
+                        local_element = new Element(this, foreign_element.Name, new_id ? Guid.NewGuid() : foreign_element.ID, foreign_element.ClassName);
                     else
                         local_element = null;
                 }
